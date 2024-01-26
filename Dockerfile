@@ -6,9 +6,10 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN go mod download
 
-COPY *.go ./
-COPY login.html login.html
+COPY html/ html/
+COPY static/ static/
 
+COPY *.go ./
 RUN go build -o /bin/server .
 
 FROM alpine

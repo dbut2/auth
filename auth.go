@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
+	"embed"
 	_ "embed"
 	"fmt"
 	"html/template"
@@ -35,6 +37,13 @@ func (p Providers) RedirectMap(state string) map[string]string {
 	return m
 }
 
+//go:embed html/*.html
+//go:embed html/*/*.html
+var htmlFiles embed.FS
+
+//go:embed static/*
+var staticFiles embed.FS
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -61,7 +70,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	t, err := template.New("login").Parse(login)
+	t, err := template.ParseFS(htmlFiles, "html/*.html", "html/*/*.html")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -69,19 +78,66 @@ func main() {
 	e := gin.Default()
 	e.SetHTMLTemplate(t)
 
-	e.GET("/", func(c *gin.Context) {
-		c.String(http.StatusOK, "Hello, world!")
+	titles := map[string]string{
+		"404": "Page not found",
+		"418": "I'm a teapot",
+		"500": "Server error",
+	}
+	messages := map[string]string{
+		"404": "Sorry, we couldn't find the page you're looking for.",
+		"418": "may be short and stout",
+		"500": "Sorry, something went wrong while trying to process your request.",
+	}
+	e.GET("/error/:code", func(c *gin.Context) {
+		code := c.Param("code")
+
+		title, ok := titles[code]
+		if !ok {
+			title = titles["500"]
+		}
+		message, ok := messages[code]
+		if !ok {
+			message = messages["500"]
+		}
+
+		c.HTML(http.StatusOK, "error.html", gin.H{
+			"Code":    code,
+			"Title":   title,
+			"Message": message,
+		})
+	})
+	e.GET("/error", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/error/500")
+	})
+
+	e.GET("/static/:file", func(c *gin.Context) {
+		file := c.Param("file")
+		bytes, err := staticFiles.ReadFile("static/" + file)
+		if err != nil {
+			panic(err.Error())
+		}
+		c.String(http.StatusOK, string(bytes))
 	})
 	e.GET("/.well-known/jwks.json", func(c *gin.Context) {
 		c.JSON(http.StatusOK, jwks)
 	})
-	e.GET("/login", func(c *gin.Context) {
+	e.GET("/", func(c *gin.Context) {
 		state := c.Query("redirect_uri")
 		if state == "" {
 			state = "no-state"
 		}
 
-		c.HTML(http.StatusOK, "login", as.providers.RedirectMap(state))
+		redirectMap := as.providers.RedirectMap(state)
+		signins := &bytes.Buffer{}
+		for _, p := range as.providers {
+
+			err = t.ExecuteTemplate(signins, p.name+"-signin.html", gin.H{"Link": redirectMap[p.name]})
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+
+		c.HTML(http.StatusOK, "login.html", gin.H{"SignIns": template.HTML(signins.String())})
 	})
 	e.GET("/redirect/:provider", as.Redirect)
 
@@ -90,9 +146,6 @@ func main() {
 		panic(err.Error())
 	}
 }
-
-//go:embed login.html
-var login string
 
 func getJwks(pem []byte) (jwk.Set, error) {
 	rsaPublicKey, _, err := jwk.DecodePEM(pem)

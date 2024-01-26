@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/url"
+	"os"
 
 	gsm "cloud.google.com/go/secretmanager/apiv1"
 	gsmpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
@@ -49,6 +50,21 @@ func ConfigFromSecret(ctx context.Context, secret string) (Config, error) {
 
 	var config Config
 	err = yaml.Unmarshal(resp.GetPayload().GetData(), &config)
+	if err != nil {
+		return Config{}, err
+	}
+
+	return config, nil
+}
+
+func ConfigFromFile(filename string) (Config, error) {
+	bytes, err := os.ReadFile(filename)
+	if err != nil {
+		return Config{}, err
+	}
+
+	var config Config
+	err = yaml.Unmarshal(bytes, &config)
 	if err != nil {
 		return Config{}, err
 	}
