@@ -3,18 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/rsa"
 	"embed"
 	_ "embed"
-	"fmt"
+	"encoding/base64"
 	"html/template"
-	"io"
-	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"golang.org/x/oauth2"
 )
@@ -59,13 +56,11 @@ func main() {
 	}
 
 	as, err := NewService(config)
-
-	pub, err := as.signer.PublicKey(ctx)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	jwks, err := getJwks(pub)
+	jwks, err := getJwks(ctx, as.signer)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -140,6 +135,32 @@ func main() {
 		c.HTML(http.StatusOK, "login.html", gin.H{"SignIns": template.HTML(signins.String())})
 	})
 	e.GET("/redirect/:provider", as.Redirect)
+	e.GET("/code", func(c *gin.Context) {
+		code := c.Query("code")
+		rawCode, err := base64.RawStdEncoding.DecodeString(code)
+		if err != nil {
+			panic(err.Error())
+		}
+		user, err := as.store.GetCodeUser(c, string(rawCode))
+		if err != nil {
+			panic(err.Error())
+		}
+		if user == nil {
+			panic("no user")
+		}
+		err = as.cookies.StoreUser(c, user)
+		if err != nil {
+			panic(err.Error())
+		}
+		c.Status(http.StatusOK)
+	})
+	e.GET("/user", func(c *gin.Context) {
+		user, err := as.cookies.GetUser(c)
+		if err != nil {
+			panic(err.Error())
+		}
+		c.String(http.StatusOK, strconv.Itoa(user.ID))
+	})
 
 	err = http.ListenAndServe(":"+port, e)
 	if err != nil {
@@ -147,12 +168,22 @@ func main() {
 	}
 }
 
-func getJwks(pem []byte) (jwk.Set, error) {
+func getJwks(ctx context.Context, signer Signer) (jwk.Set, error) {
+	pem, kid, err := signer.PublicKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	rsaPublicKey, _, err := jwk.DecodePEM(pem)
 	if err != nil {
 		return nil, err
 	}
 	key, err := jwk.FromRaw(rsaPublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	err = key.Set("kid", kid)
 	if err != nil {
 		return nil, err
 	}
@@ -165,44 +196,6 @@ func getJwks(pem []byte) (jwk.Set, error) {
 	return set, nil
 }
 
-// verifyToken verifies the token using the JWKS endpoint
-func verifyToken(jwksUrl string, myToken string) (*jwt.Token, error) {
-	resp, err := http.Get(jwksUrl)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	bytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(bytes))
-	jwks, err := jwk.Parse(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := jwt.Parse(myToken, func(token *jwt.Token) (interface{}, error) {
-		k, _ := jwks.Key(0)
-
-		pk := k.(jwk.RSAPublicKey)
-
-		pk2 := &rsa.PublicKey{
-			N: big.NewInt(0).SetBytes(pk.N()),
-			E: int(big.NewInt(0).SetBytes(pk.E()).Int64()),
-		}
-
-		return pk2, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return token, nil
-}
-
 type AuthService struct {
 	address string
 
@@ -210,4 +203,5 @@ type AuthService struct {
 	signer    Signer
 	encrypter Encrypter
 	store     Store
+	cookies   Cookies
 }

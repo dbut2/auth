@@ -10,7 +10,8 @@ CREATE TABLE UserTokens (
     PRIMARY KEY (Provider, ProviderIdentity)
 );
 
-CREATE Table Codes (
+CREATE TABLE Codes (
+    ID SERIAL UNIQUE NOT NULL PRIMARY KEY,
     Code TEXT UNIQUE NOT NULL,
     UserID INTEGER REFERENCES Users(ID) NOT NULL
 );

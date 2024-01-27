@@ -22,23 +22,27 @@ type Store interface {
 	StoreCode(ctx context.Context, user *User, code string) error
 }
 
-type Postgres struct {
-	db        *sql.DB
-	encrypter Encrypter
-}
-
-var _ Store = new(Postgres)
-
-func NewPostgres(config PostgresConfig, encrypter Encrypter) (*Postgres, error) {
+func NewPostgres(config PostgresConfig) (*sql.DB, error) {
 	conn, err := pq.NewConnector(config.DSN)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Postgres{db: sql.OpenDB(conn), encrypter: encrypter}, nil
+	return sql.OpenDB(conn), nil
 }
 
-func (p *Postgres) GetUser(ctx context.Context, provider string, identity any) (*User, error) {
+type SqlStore struct {
+	db        *sql.DB
+	encrypter Encrypter
+}
+
+var _ Store = new(SqlStore)
+
+func NewSqlStore(db *sql.DB, encrypter Encrypter) *SqlStore {
+	return &SqlStore{db: db, encrypter: encrypter}
+}
+
+func (p *SqlStore) GetUser(ctx context.Context, provider string, identity any) (*User, error) {
 	stmt, err := p.db.PrepareContext(ctx, getUserStmt)
 	if err != nil {
 		return nil, err
@@ -78,7 +82,7 @@ AND ut.ProviderIdentity = $2
 LIMIT 1;
 `
 
-func (p *Postgres) CreateUser(ctx context.Context) (*User, error) {
+func (p *SqlStore) CreateUser(ctx context.Context) (*User, error) {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return nil, err
@@ -120,7 +124,7 @@ const createUserStmt = `
 INSERT INTO Users DEFAULT VALUES RETURNING ID;
 `
 
-func (p *Postgres) GetToken(ctx context.Context, provider string, identity any) (*oauth2.Token, error) {
+func (p *SqlStore) GetToken(ctx context.Context, provider string, identity any) (*oauth2.Token, error) {
 	stmt, err := p.db.PrepareContext(ctx, getTokenStmt)
 	if err != nil {
 		return nil, err
@@ -161,7 +165,7 @@ AND ut.ProviderIdentity = $2
 LIMIT 1;
 `
 
-func (p *Postgres) encryptToken(ctx context.Context, token *oauth2.Token) (string, error) {
+func (p *SqlStore) encryptToken(ctx context.Context, token *oauth2.Token) (string, error) {
 	tokenBytes, err := json.Marshal(token)
 	if err != nil {
 		return "", err
@@ -176,7 +180,7 @@ func (p *Postgres) encryptToken(ctx context.Context, token *oauth2.Token) (strin
 	return encoded, nil
 }
 
-func (p *Postgres) decryptToken(ctx context.Context, cipher string) (*oauth2.Token, error) {
+func (p *SqlStore) decryptToken(ctx context.Context, cipher string) (*oauth2.Token, error) {
 	decoded, err := base64.RawStdEncoding.DecodeString(cipher)
 	if err != nil {
 		return nil, err
@@ -196,7 +200,7 @@ func (p *Postgres) decryptToken(ctx context.Context, cipher string) (*oauth2.Tok
 	return token, nil
 }
 
-func (p *Postgres) StoreToken(ctx context.Context, user *User, provider string, identity any, token *oauth2.Token) error {
+func (p *SqlStore) StoreToken(ctx context.Context, user *User, provider string, identity any, token *oauth2.Token) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
@@ -235,7 +239,7 @@ func (p *Postgres) StoreToken(ctx context.Context, user *User, provider string, 
 	return nil
 }
 
-func (p *Postgres) createToken(ctx context.Context, tx *sql.Tx, provider string, identityBytes []byte, userID int, token string) error {
+func (p *SqlStore) createToken(ctx context.Context, tx *sql.Tx, provider string, identityBytes []byte, userID int, token string) error {
 	stmt, err := tx.PrepareContext(ctx, createTokenStmt)
 	if err != nil {
 		return err
@@ -253,7 +257,7 @@ const createTokenStmt = `
 INSERT INTO UserTokens (Provider, ProviderIdentity, UserID, Token) VALUES ($1, $2, $3, $4);
 `
 
-func (p *Postgres) updateToken(ctx context.Context, tx *sql.Tx, provider string, identityBytes []byte, token string) error {
+func (p *SqlStore) updateToken(ctx context.Context, tx *sql.Tx, provider string, identityBytes []byte, token string) error {
 	stmt, err := tx.PrepareContext(ctx, updateTokenStmt)
 	if err != nil {
 		return err
@@ -276,7 +280,7 @@ WHERE Provider = $2
 AND ProviderIdentity = $3;
 `
 
-func (p *Postgres) GetCodeUser(ctx context.Context, code string) (*User, error) {
+func (p *SqlStore) GetCodeUser(ctx context.Context, code string) (*User, error) {
 	stmt, err := p.db.PrepareContext(ctx, getCodeUserStmt)
 	if err != nil {
 		return nil, err
@@ -309,7 +313,7 @@ WHERE c.Code = $1
 LIMIT 1;
 `
 
-func (p *Postgres) StoreCode(ctx context.Context, user *User, code string) error {
+func (p *SqlStore) StoreCode(ctx context.Context, user *User, code string) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err

@@ -11,8 +11,9 @@ import (
 )
 
 type Signer interface {
-	Sign(ctx context.Context, data []byte) ([]byte, error)
-	PublicKey(ctx context.Context) ([]byte, error)
+	Sign(ctx context.Context, data []byte) ([]byte, string, error)
+	SignWith(ctx context.Context, kid string, data []byte) ([]byte, error)
+	PublicKey(ctx context.Context) ([]byte, string, error)
 }
 
 type Encrypter interface {
@@ -43,15 +44,21 @@ func NewLocalSigner() (*LocalSignerEncrypter, error) {
 	}, nil
 }
 
-func (l *LocalSignerEncrypter) Sign(ctx context.Context, bytes []byte) ([]byte, error) {
+func (l *LocalSignerEncrypter) Sign(ctx context.Context, bytes []byte) ([]byte, string, error) {
+	hash := sha512.Sum512(bytes)
+	bytes, err := l.key.Sign(rand.Reader, hash[:], crypto.SHA512)
+	return bytes, "key", err
+}
+
+func (l *LocalSignerEncrypter) SignWith(ctx context.Context, _ string, bytes []byte) ([]byte, error) {
 	hash := sha512.Sum512(bytes)
 	return l.key.Sign(rand.Reader, hash[:], crypto.SHA512)
 }
 
-func (l *LocalSignerEncrypter) PublicKey(ctx context.Context) ([]byte, error) {
+func (l *LocalSignerEncrypter) PublicKey(ctx context.Context) ([]byte, string, error) {
 	derPkix, err := x509.MarshalPKIXPublicKey(&l.key.PublicKey)
 	if err != nil {
-		return nil, err
+		return nil, "key", err
 	}
 
 	pemBlock := &pem.Block{
@@ -59,7 +66,7 @@ func (l *LocalSignerEncrypter) PublicKey(ctx context.Context) ([]byte, error) {
 		Bytes: derPkix,
 	}
 
-	return pem.EncodeToMemory(pemBlock), nil
+	return pem.EncodeToMemory(pemBlock), "key", nil
 }
 
 func (l *LocalSignerEncrypter) Encrypt(ctx context.Context, plaintext []byte) ([]byte, error) {

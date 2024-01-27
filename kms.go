@@ -14,6 +14,9 @@ type KMSClient struct {
 	signingKey, encryptingKey, decryptingKey string
 }
 
+var _ Signer = new(KMSClient)
+var _ Encrypter = new(KMSClient)
+
 func NewKMSClient(ctx context.Context, config KeysConfig) (*KMSClient, error) {
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
@@ -28,7 +31,20 @@ func NewKMSClient(ctx context.Context, config KeysConfig) (*KMSClient, error) {
 	}, nil
 }
 
-func (k *KMSClient) Sign(ctx context.Context, data []byte) ([]byte, error) {
+func (k *KMSClient) Sign(ctx context.Context, data []byte) ([]byte, string, error) {
+	hash := sha512.Sum512(data)
+	resp, err := k.client.AsymmetricSign(ctx, &kmspb.AsymmetricSignRequest{
+		Name: k.signingKey,
+		Digest: &kmspb.Digest{
+			Digest: &kmspb.Digest_Sha512{
+				Sha512: hash[:],
+			},
+		},
+	})
+	return resp.GetSignature(), "key", err
+}
+
+func (k *KMSClient) SignWith(ctx context.Context, _ string, data []byte) ([]byte, error) {
 	hash := sha512.Sum512(data)
 	resp, err := k.client.AsymmetricSign(ctx, &kmspb.AsymmetricSignRequest{
 		Name: k.signingKey,
@@ -41,9 +57,9 @@ func (k *KMSClient) Sign(ctx context.Context, data []byte) ([]byte, error) {
 	return resp.GetSignature(), err
 }
 
-func (k *KMSClient) PublicKey(ctx context.Context) ([]byte, error) {
+func (k *KMSClient) PublicKey(ctx context.Context) ([]byte, string, error) {
 	resp, err := k.client.GetPublicKey(ctx, &kmspb.GetPublicKeyRequest{Name: k.signingKey})
-	return []byte(resp.GetPem()), err
+	return []byte(resp.GetPem()), "key", err
 }
 
 func (k *KMSClient) Encrypt(ctx context.Context, plaintext []byte) ([]byte, error) {

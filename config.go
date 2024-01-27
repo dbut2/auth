@@ -73,24 +73,31 @@ func ConfigFromFile(filename string) (Config, error) {
 }
 
 func NewService(config Config) (*AuthService, error) {
-	providers := NewProviders(config.Providers, config.Address+"redirect/")
+	providers := NewProviders(config.Providers, config.Address+"/redirect")
 
 	se, err := NewKMSClient(context.Background(), config.Keys)
 	if err != nil {
 		return nil, err
 	}
 
-	storer, err := NewPostgres(config.Postgres, se)
+	postgres, err := NewPostgres(config.Postgres)
 	if err != nil {
 		return nil, err
 	}
+
+	store := NewSqlStore(postgres, se)
+
+	issuer := newDefaultIssuer(config.Address, se)
+
+	cookies := newDefaultCookies(issuer)
 
 	as := &AuthService{
 		address:   config.Address,
 		providers: providers,
 		signer:    se,
 		encrypter: se,
-		store:     storer,
+		store:     store,
+		cookies:   cookies,
 	}
 	return as, nil
 }
@@ -204,7 +211,7 @@ func NewProviders(config ProvidersConfig, redirectBase string) Providers {
 				ClientID:     pc.ClientID,
 				ClientSecret: pc.ClientSecret,
 				Endpoint:     endpointMap[name],
-				RedirectURL:  redirectBase + name,
+				RedirectURL:  redirectBase + "/" + name,
 				Scopes:       pc.Scopes,
 			},
 			identity: identityMap[name],

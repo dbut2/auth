@@ -4,6 +4,7 @@ go 1.21.6
 
 require (
 	cloud.google.com/go/kms v1.15.5
+	cloud.google.com/go/secretmanager v1.11.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v58 v58.0.0
@@ -20,7 +21,6 @@ require (
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.5 // indirect
-	cloud.google.com/go/secretmanager v1.11.4 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
