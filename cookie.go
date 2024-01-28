@@ -66,7 +66,7 @@ func (d defaultCookies) StoreUser(c *gin.Context, user *User) error {
 	}
 
 	encodedToken := base64.RawStdEncoding.EncodeToString([]byte(token))
-	c.SetCookie("daid", encodedToken, 86400*7, "/", "auth.dylanbutler.dev", true, true)
+	c.SetCookie("daid", encodedToken, 86400*7, "", "", false, true)
 
 	return nil
 }

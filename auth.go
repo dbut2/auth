@@ -6,6 +6,7 @@ import (
 	"embed"
 	_ "embed"
 	"encoding/base64"
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -153,9 +154,13 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
-		c.Status(http.StatusOK)
+		c.Redirect(http.StatusTemporaryRedirect, "/dashboard")
 	})
-	e.GET("/user", func(c *gin.Context) {
+	e.GET("/dashboard", func(c *gin.Context) {
+		fmt.Println("cookies", len(c.Request.Cookies()))
+		for _, cookie := range c.Request.Cookies() {
+			fmt.Println(*cookie)
+		}
 		user, err := as.cookies.GetUser(c)
 		if err != nil {
 			panic(err.Error())
