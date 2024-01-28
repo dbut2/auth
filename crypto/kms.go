@@ -1,4 +1,4 @@
-package main
+package crypto
 
 import (
 	"context"
@@ -17,7 +17,13 @@ type KMSClient struct {
 var _ Signer = new(KMSClient)
 var _ Encrypter = new(KMSClient)
 
-func NewKMSClient(ctx context.Context, config KeysConfig) (*KMSClient, error) {
+type KMSConfig struct {
+	SigningKey    string `yaml:"signingKey"`
+	EncryptingKey string `yaml:"encryptingKey"`
+	DecryptingKey string `yaml:"decryptingKey"`
+}
+
+func NewKMSClient(ctx context.Context, config KMSConfig) (*KMSClient, error) {
 	client, err := kms.NewKeyManagementClient(ctx)
 	if err != nil {
 		return nil, err

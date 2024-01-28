@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/dbut2/auth/crypto"
 	"github.com/lib/pq"
 	"golang.org/x/oauth2"
 )
@@ -33,12 +34,12 @@ func NewPostgres(config PostgresConfig) (*sql.DB, error) {
 
 type SqlStore struct {
 	db        *sql.DB
-	encrypter Encrypter
+	encrypter crypto.Encrypter
 }
 
 var _ Store = new(SqlStore)
 
-func NewSqlStore(db *sql.DB, encrypter Encrypter) *SqlStore {
+func NewSqlStore(db *sql.DB, encrypter crypto.Encrypter) *SqlStore {
 	return &SqlStore{db: db, encrypter: encrypter}
 }
 

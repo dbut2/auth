@@ -9,6 +9,7 @@ import (
 
 	gsm "cloud.google.com/go/secretmanager/apiv1"
 	gsmpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+	"github.com/dbut2/auth/crypto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -19,20 +20,19 @@ import (
 )
 
 type Config struct {
-	Address   string          `yaml:"address"`
-	Postgres  PostgresConfig  `yaml:"postgres"`
-	Keys      KeysConfig      `yaml:"keys"`
-	Providers ProvidersConfig `yaml:"providers"`
+	Address   string           `yaml:"address"`
+	Postgres  PostgresConfig   `yaml:"postgres"`
+	Keys      crypto.KMSConfig `yaml:"keys"`
+	Signer    SignerConfig     `yaml:"signer"`
+	Providers ProvidersConfig  `yaml:"providers"`
 }
 
 type PostgresConfig struct {
 	DSN string `yaml:"dsn"`
 }
 
-type KeysConfig struct {
-	SigningKey    string `yaml:"signingKey"`
-	EncryptingKey string `yaml:"encryptingKey"`
-	DecryptingKey string `yaml:"decryptingKey"`
+type SignerConfig struct {
+	Secret string `yaml:"keySecret"`
 }
 
 func ConfigFromSecret(ctx context.Context, secret string) (Config, error) {
@@ -72,30 +72,36 @@ func ConfigFromFile(filename string) (Config, error) {
 	return config, nil
 }
 
-func NewService(config Config) (*AuthService, error) {
+func NewService(ctx context.Context, config Config) (*AuthService, error) {
 	providers := NewProviders(config.Providers, config.Address+"/redirect")
 
-	se, err := NewKMSClient(context.Background(), config.Keys)
+	encrypter, err := crypto.NewKMSClient(context.Background(), config.Keys)
 	if err != nil {
 		return nil, err
 	}
+
+	pk, err := crypto.LoadGSMKey(ctx, config.Signer.Secret)
+	if err != nil {
+		return nil, err
+	}
+	signer := crypto.NewLocalSigner(pk)
 
 	postgres, err := NewPostgres(config.Postgres)
 	if err != nil {
 		return nil, err
 	}
 
-	store := NewSqlStore(postgres, se)
+	store := NewSqlStore(postgres, encrypter)
 
-	issuer := newDefaultIssuer(config.Address, se)
+	issuer := newDefaultIssuer(config.Address, signer)
 
 	cookies := newDefaultCookies(issuer)
 
 	as := &AuthService{
 		address:   config.Address,
 		providers: providers,
-		signer:    se,
-		encrypter: se,
+		signer:    signer,
+		encrypter: encrypter,
 		store:     store,
 		cookies:   cookies,
 	}

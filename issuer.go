@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/rsa"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/dbut2/auth/crypto"
 	"github.com/golang-jwt/jwt"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
@@ -18,12 +18,12 @@ type Issuer interface {
 
 type defaultIssuer struct {
 	issuer string
-	signer Signer
+	signer crypto.Signer
 }
 
 var _ Issuer = new(defaultIssuer)
 
-func newDefaultIssuer(issuer string, signer Signer) *defaultIssuer {
+func newDefaultIssuer(issuer string, signer crypto.Signer) *defaultIssuer {
 	return &defaultIssuer{
 		issuer: issuer,
 		signer: signer,
@@ -93,6 +93,5 @@ func fetchJwks(ctx context.Context, token *jwt.Token) (jwk.Set, error) {
 
 	issuer := claims["iss"].(string)
 	u := issuer + "/.well-known/jwks.json"
-	fmt.Println(u)
 	return jwk.Fetch(ctx, u)
 }

@@ -10,6 +10,7 @@ COPY html/ html/
 COPY static/ static/
 
 COPY *.go ./
+COPY crypto crypto
 RUN go build -o /bin/server .
 
 FROM alpine

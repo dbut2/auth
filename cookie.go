@@ -28,7 +28,7 @@ func newDefaultCookies(issuer Issuer) *defaultCookies {
 func (d defaultCookies) GetUser(c *gin.Context) (*User, error) {
 	encodedToken, err := c.Cookie("daid")
 	if errors.Is(err, http.ErrNoCookie) {
-		return nil, nil
+		return nil, errors.New("cookie not found")
 	}
 	if err != nil {
 		return nil, err

@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/dbut2/auth/crypto"
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"golang.org/x/oauth2"
@@ -55,7 +56,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	as, err := NewService(config)
+	as, err := NewService(ctx, config)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -159,6 +160,10 @@ func main() {
 		if err != nil {
 			panic(err.Error())
 		}
+		if user == nil {
+			c.String(http.StatusNotFound, "User not found")
+			return
+		}
 		c.String(http.StatusOK, strconv.Itoa(user.ID))
 	})
 
@@ -168,7 +173,7 @@ func main() {
 	}
 }
 
-func getJwks(ctx context.Context, signer Signer) (jwk.Set, error) {
+func getJwks(ctx context.Context, signer crypto.Signer) (jwk.Set, error) {
 	pem, kid, err := signer.PublicKey(ctx)
 	if err != nil {
 		return nil, err
@@ -200,8 +205,8 @@ type AuthService struct {
 	address string
 
 	providers Providers
-	signer    Signer
-	encrypter Encrypter
+	signer    crypto.Signer
+	encrypter crypto.Encrypter
 	store     Store
 	cookies   Cookies
 }
