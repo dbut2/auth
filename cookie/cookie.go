@@ -1,4 +1,4 @@
-package main
+package cookie
 
 import (
 	"encoding/base64"
@@ -8,24 +8,27 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+
+	"github.com/dbut2/auth/auth"
+	"github.com/dbut2/auth/models"
 )
 
 type Cookies interface {
-	GetUser(c *gin.Context) (*User, error)
-	StoreUser(c *gin.Context, user *User) error
+	GetUser(c *gin.Context) (*models.User, error)
+	StoreUser(c *gin.Context, user *models.User) error
 }
 
-type defaultCookies struct {
-	issuer Issuer
+type DefaultCookies struct {
+	issuer auth.Issuer
 }
 
-var _ Cookies = new(defaultCookies)
+var _ Cookies = new(DefaultCookies)
 
-func newDefaultCookies(issuer Issuer) *defaultCookies {
-	return &defaultCookies{issuer: issuer}
+func NewDefaultCookies(issuer auth.Issuer) *DefaultCookies {
+	return &DefaultCookies{issuer: issuer}
 }
 
-func (d defaultCookies) GetUser(c *gin.Context) (*User, error) {
+func (d DefaultCookies) GetUser(c *gin.Context) (*models.User, error) {
 	encodedToken, err := c.Cookie("daid")
 	if errors.Is(err, http.ErrNoCookie) {
 		return nil, errors.New("cookie not found")
@@ -55,10 +58,10 @@ func (d defaultCookies) GetUser(c *gin.Context) (*User, error) {
 		return nil, err
 	}
 
-	return &User{ID: id}, nil
+	return &models.User{ID: id}, nil
 }
 
-func (d defaultCookies) StoreUser(c *gin.Context, user *User) error {
+func (d DefaultCookies) StoreUser(c *gin.Context, user *models.User) error {
 	subject := strconv.Itoa(user.ID)
 	token, err := d.issuer.Issue(c, subject)
 	if err != nil {

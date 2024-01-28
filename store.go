@@ -7,20 +7,22 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/dbut2/auth/crypto"
 	"github.com/lib/pq"
 	"golang.org/x/oauth2"
+
+	"github.com/dbut2/auth/crypto"
+	"github.com/dbut2/auth/models"
 )
 
 type Store interface {
-	GetUser(ctx context.Context, provider string, identity any) (*User, error)
-	CreateUser(ctx context.Context) (*User, error)
+	GetUser(ctx context.Context, provider string, identity any) (*models.User, error)
+	CreateUser(ctx context.Context) (*models.User, error)
 
 	GetToken(ctx context.Context, provider string, identity any) (*oauth2.Token, error)
-	StoreToken(ctx context.Context, user *User, provider string, identity any, token *oauth2.Token) error
+	StoreToken(ctx context.Context, user *models.User, provider string, identity any, token *oauth2.Token) error
 
-	GetCodeUser(ctx context.Context, code string) (*User, error)
-	StoreCode(ctx context.Context, user *User, code string) error
+	GetCodeUser(ctx context.Context, code string) (*models.User, error)
+	StoreCode(ctx context.Context, user *models.User, code string) error
 }
 
 func NewPostgres(config PostgresConfig) (*sql.DB, error) {
@@ -43,7 +45,7 @@ func NewSqlStore(db *sql.DB, encrypter crypto.Encrypter) *SqlStore {
 	return &SqlStore{db: db, encrypter: encrypter}
 }
 
-func (p *SqlStore) GetUser(ctx context.Context, provider string, identity any) (*User, error) {
+func (p *SqlStore) GetUser(ctx context.Context, provider string, identity any) (*models.User, error) {
 	stmt, err := p.db.PrepareContext(ctx, getUserStmt)
 	if err != nil {
 		return nil, err
@@ -60,7 +62,7 @@ func (p *SqlStore) GetUser(ctx context.Context, provider string, identity any) (
 		return nil, err
 	}
 
-	user := &User{}
+	user := &models.User{}
 	err = row.Scan(&user.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -83,7 +85,7 @@ AND ut.ProviderIdentity = $2
 LIMIT 1;
 `
 
-func (p *SqlStore) CreateUser(ctx context.Context) (*User, error) {
+func (p *SqlStore) CreateUser(ctx context.Context) (*models.User, error) {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return nil, err
@@ -107,7 +109,7 @@ func (p *SqlStore) CreateUser(ctx context.Context) (*User, error) {
 		return nil, errors.New("query returned no new user")
 	}
 
-	user := &User{}
+	user := &models.User{}
 	err = row.Scan(&user.ID)
 	if err != nil {
 		return nil, err
@@ -201,7 +203,7 @@ func (p *SqlStore) decryptToken(ctx context.Context, cipher string) (*oauth2.Tok
 	return token, nil
 }
 
-func (p *SqlStore) StoreToken(ctx context.Context, user *User, provider string, identity any, token *oauth2.Token) error {
+func (p *SqlStore) StoreToken(ctx context.Context, user *models.User, provider string, identity any, token *oauth2.Token) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
@@ -281,7 +283,7 @@ WHERE Provider = $2
 AND ProviderIdentity = $3;
 `
 
-func (p *SqlStore) GetCodeUser(ctx context.Context, code string) (*User, error) {
+func (p *SqlStore) GetCodeUser(ctx context.Context, code string) (*models.User, error) {
 	stmt, err := p.db.PrepareContext(ctx, getCodeUserStmt)
 	if err != nil {
 		return nil, err
@@ -292,7 +294,7 @@ func (p *SqlStore) GetCodeUser(ctx context.Context, code string) (*User, error) 
 		return nil, err
 	}
 
-	user := &User{}
+	user := &models.User{}
 	err = row.Scan(&user.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -314,7 +316,7 @@ WHERE c.Code = $1
 LIMIT 1;
 `
 
-func (p *SqlStore) StoreCode(ctx context.Context, user *User, code string) error {
+func (p *SqlStore) StoreCode(ctx context.Context, user *models.User, code string) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err

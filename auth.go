@@ -9,13 +9,20 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 
-	"github.com/dbut2/auth/crypto"
 	"github.com/gin-gonic/gin"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
+
+	"github.com/dbut2/auth/cookie"
+	"github.com/dbut2/auth/crypto"
+	"github.com/dbut2/auth/models"
+	"github.com/dbut2/auth/providers"
 )
 
 type Providers map[string]Provider
@@ -23,7 +30,7 @@ type Providers map[string]Provider
 type Provider struct {
 	name     string
 	oauth2   *oauth2.Config
-	identity IdentityProvider
+	identity providers.IdentityProvider
 }
 
 func (p Providers) RedirectMap(state string) map[string]string {
@@ -35,10 +42,6 @@ func (p Providers) RedirectMap(state string) map[string]string {
 
 	return m
 }
-
-//go:embed html/*.html
-//go:embed html/*/*.html
-var htmlFiles embed.FS
 
 //go:embed static/*
 var staticFiles embed.FS
@@ -62,12 +65,12 @@ func main() {
 		panic(err.Error())
 	}
 
-	jwks, err := getJwks(ctx, as.signer)
+	jwks, err := crypto.GenerateJwks(ctx, as.signer)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	t, err := template.ParseFS(htmlFiles, "html/*.html", "html/*/*.html")
+	t, err := as.preprocessTemplate()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -124,17 +127,8 @@ func main() {
 			state = "no-state"
 		}
 
-		redirectMap := as.providers.RedirectMap(state)
-		signins := &bytes.Buffer{}
-		for _, p := range as.providers {
+		c.HTML(http.StatusOK, "login", gin.H{"State": state})
 
-			err = t.ExecuteTemplate(signins, p.name+"-signin.html", gin.H{"Link": redirectMap[p.name]})
-			if err != nil {
-				panic(err.Error())
-			}
-		}
-
-		c.HTML(http.StatusOK, "login.html", gin.H{"SignIns": template.HTML(signins.String())})
 	})
 	e.GET("/redirect/:provider", as.Redirect)
 	e.GET("/code", func(c *gin.Context) {
@@ -178,32 +172,126 @@ func main() {
 	}
 }
 
-func getJwks(ctx context.Context, signer crypto.Signer) (jwk.Set, error) {
-	pem, kid, err := signer.PublicKey(ctx)
+//go:embed html/*.html
+//go:embed html/*/*.html
+var htmlFiles embed.FS
+
+func (a *AuthService) preprocessTemplate() (*template.Template, error) {
+	t, err := template.ParseFS(htmlFiles, "html/*.html", "html/*/*.html")
 	if err != nil {
 		return nil, err
 	}
 
-	rsaPublicKey, _, err := jwk.DecodePEM(pem)
-	if err != nil {
-		return nil, err
+	redirectMap := a.providers.RedirectMap("{{ .State }}")
+
+	redirectKeys := make([]string, 0, len(redirectMap))
+	for key := range redirectMap {
+		redirectKeys = append(redirectKeys, key)
 	}
-	key, err := jwk.FromRaw(rsaPublicKey)
+	slices.Sort(redirectKeys)
+
+	signins := &bytes.Buffer{}
+	for _, provider := range redirectKeys {
+		err = t.ExecuteTemplate(signins, provider+"-signin.html", gin.H{"Link": template.HTML(redirectMap[provider])})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	login := &bytes.Buffer{}
+	err = t.ExecuteTemplate(login, "login.html", gin.H{"SignIns": template.HTML(signins.String())})
 	if err != nil {
 		return nil, err
 	}
 
-	err = key.Set("kid", kid)
+	loginTemplate := strings.ReplaceAll(login.String(), "%7B%7B&#43;.State&#43;%7D%7D", "{{ .State }}") // todo: there's probably a better way to do this
+	return template.New("login").Parse(loginTemplate)
+}
+
+func Error(c *gin.Context, err error) {
+	c.String(http.StatusInternalServerError, "Something went wrong!")
+
+}
+
+func (a *AuthService) Redirect(c *gin.Context) {
+	pp := c.Param("provider")
+
+	code := c.Query("code")
+	state := c.Query("state")
+
+	user, err := a.Take(c, pp, code)
+	if err != nil {
+		c.Error(err)
+		Error(c, err)
+		return
+	}
+
+	code, err = a.GenerateCode(c, user)
+	if err != nil {
+		c.Error(err)
+		Error(c, err)
+		return
+	}
+
+	if state == "no-state" {
+		state = "/code"
+	}
+
+	u, err := url.Parse(state)
+	if err != nil {
+		c.Status(http.StatusOK)
+		return
+	}
+
+	q := u.Query()
+	q.Add("code", code)
+	u.RawQuery = q.Encode()
+
+	c.Redirect(http.StatusTemporaryRedirect, u.String())
+}
+
+// Take will swap a code for a token and return a User, creating one if not exists
+func (a *AuthService) Take(ctx context.Context, provider string, code string) (*models.User, error) {
+	p := a.providers[provider]
+
+	token, err := p.oauth2.Exchange(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 
-	set := jwk.NewSet()
-	err = set.AddKey(key)
+	identity, err := p.identity(ctx, token)
 	if err != nil {
 		return nil, err
 	}
-	return set, nil
+
+	user, err := a.store.GetUser(ctx, provider, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil {
+		user, err = a.store.CreateUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = a.store.StoreToken(ctx, user, provider, identity, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (a *AuthService) GenerateCode(ctx context.Context, user *models.User) (string, error) {
+	uid := uuid.New().String()
+
+	err := a.store.StoreCode(ctx, user, uid)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawStdEncoding.EncodeToString([]byte(uid)), nil
 }
 
 type AuthService struct {
@@ -213,5 +301,5 @@ type AuthService struct {
 	signer    crypto.Signer
 	encrypter crypto.Encrypter
 	store     Store
-	cookies   Cookies
+	cookies   cookie.Cookies
 }

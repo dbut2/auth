@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"context"
@@ -6,9 +6,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/dbut2/auth/crypto"
 	"github.com/golang-jwt/jwt"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+
+	"github.com/dbut2/auth/crypto"
 )
 
 type Issuer interface {
@@ -16,21 +17,21 @@ type Issuer interface {
 	Verify(ctx context.Context, token string) (*jwt.Token, error)
 }
 
-type defaultIssuer struct {
+type DefaultIssuer struct {
 	issuer string
 	signer crypto.Signer
 }
 
-var _ Issuer = new(defaultIssuer)
+var _ Issuer = new(DefaultIssuer)
 
-func newDefaultIssuer(issuer string, signer crypto.Signer) *defaultIssuer {
-	return &defaultIssuer{
+func NewDefaultIssuer(issuer string, signer crypto.Signer) *DefaultIssuer {
+	return &DefaultIssuer{
 		issuer: issuer,
 		signer: signer,
 	}
 }
 
-func (i *defaultIssuer) Issue(ctx context.Context, subject string) (string, error) {
+func (i *DefaultIssuer) Issue(ctx context.Context, subject string) (string, error) {
 	token := jwt.New(jwt.SigningMethodRS512)
 
 	_, kid, err := i.signer.PublicKey(ctx)
@@ -62,7 +63,7 @@ func (i *defaultIssuer) Issue(ctx context.Context, subject string) (string, erro
 	return signedToken, nil
 }
 
-func (i *defaultIssuer) Verify(ctx context.Context, token string) (*jwt.Token, error) {
+func (i *DefaultIssuer) Verify(ctx context.Context, token string) (*jwt.Token, error) {
 	return jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		jwks, err := fetchJwks(ctx, token)
 		if err != nil {
