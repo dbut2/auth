@@ -10,7 +10,11 @@ COPY html/ html/
 COPY static/ static/
 
 COPY *.go ./
+COPY auth auth
+COPY cookie cookie
 COPY crypto crypto
+COPY models models
+COPY providers providers
 RUN go build -o /bin/server .
 
 FROM alpine
