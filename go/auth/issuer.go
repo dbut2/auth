@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 
-	"github.com/dbut2/auth/crypto"
+	"github.com/dbut2/auth/go/crypto"
 )
 
 type Issuer interface {

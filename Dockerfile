@@ -2,22 +2,13 @@ FROM golang:alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.mod
-COPY go.sum go.sum
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY html/ html/
-COPY static/ static/
+COPY go/ html/ static/ ./
+RUN go build -o /bin/server ./go
 
-COPY *.go ./
-COPY auth auth
-COPY cookie cookie
-COPY crypto crypto
-COPY models models
-COPY providers providers
-RUN go build -o /bin/server .
-
-FROM alpine
+FROM alpine AS final
 
 WORKDIR /app
 

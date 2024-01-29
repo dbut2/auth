@@ -12,22 +12,19 @@ import (
 	"golang.org/x/oauth2/google"
 	"gopkg.in/yaml.v3"
 
-	"github.com/dbut2/auth/auth"
-	"github.com/dbut2/auth/cookie"
-	"github.com/dbut2/auth/crypto"
-	"github.com/dbut2/auth/providers"
+	"github.com/dbut2/auth/go/auth"
+	"github.com/dbut2/auth/go/cookie"
+	"github.com/dbut2/auth/go/crypto"
+	"github.com/dbut2/auth/go/providers"
+	"github.com/dbut2/auth/go/store"
 )
 
 type Config struct {
-	Address   string           `yaml:"address"`
-	Postgres  PostgresConfig   `yaml:"postgres"`
-	Keys      crypto.KMSConfig `yaml:"keys"`
-	Signer    SignerConfig     `yaml:"signer"`
-	Providers ProvidersConfig  `yaml:"providers"`
-}
-
-type PostgresConfig struct {
-	DSN string `yaml:"dsn"`
+	Address   string               `yaml:"address"`
+	Postgres  store.PostgresConfig `yaml:"postgres"`
+	Keys      crypto.KMSConfig     `yaml:"keys"`
+	Signer    SignerConfig         `yaml:"signer"`
+	Providers ProvidersConfig      `yaml:"providers"`
 }
 
 type SignerConfig struct {
@@ -85,12 +82,12 @@ func NewService(ctx context.Context, config Config) (*AuthService, error) {
 	}
 	signer := crypto.NewLocalSigner(pk)
 
-	postgres, err := NewPostgres(config.Postgres)
+	postgres, err := store.NewPostgres(config.Postgres)
 	if err != nil {
 		return nil, err
 	}
 
-	store := NewSqlStore(postgres, encrypter)
+	store := store.NewSqlStore(postgres, encrypter)
 
 	issuer := auth.NewDefaultIssuer(config.Address, signer)
 

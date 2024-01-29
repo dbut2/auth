@@ -19,10 +19,12 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
-	"github.com/dbut2/auth/cookie"
-	"github.com/dbut2/auth/crypto"
-	"github.com/dbut2/auth/models"
-	"github.com/dbut2/auth/providers"
+	"github.com/dbut2/auth/go/cookie"
+	"github.com/dbut2/auth/go/crypto"
+	"github.com/dbut2/auth/go/models"
+	"github.com/dbut2/auth/go/providers"
+	"github.com/dbut2/auth/go/store"
+	"github.com/dbut2/auth/html"
 )
 
 type Providers map[string]Provider
@@ -172,12 +174,8 @@ func main() {
 	}
 }
 
-//go:embed html/*.html
-//go:embed html/*/*.html
-var htmlFiles embed.FS
-
 func (a *AuthService) preprocessTemplate() (*template.Template, error) {
-	t, err := template.ParseFS(htmlFiles, "html/*.html", "html/*/*.html")
+	t, err := template.ParseFS(html.Files, "html/*.html", "html/*/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +298,6 @@ type AuthService struct {
 	providers Providers
 	signer    crypto.Signer
 	encrypter crypto.Encrypter
-	store     Store
+	store     store.Store
 	cookies   cookie.Cookies
 }

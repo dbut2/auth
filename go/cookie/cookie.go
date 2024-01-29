@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 
-	"github.com/dbut2/auth/auth"
-	"github.com/dbut2/auth/models"
+	"github.com/dbut2/auth/go/auth"
+	"github.com/dbut2/auth/go/models"
 )
 
 type Cookies interface {
