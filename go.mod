@@ -3,7 +3,7 @@ module github.com/dbut2/auth
 go 1.21.6
 
 require (
-	cloud.google.com/go/kms v1.15.5
+	cloud.google.com/go/kms v1.15.6
 	cloud.google.com/go/secretmanager v1.11.5
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
