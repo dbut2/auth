@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"embed"
 	_ "embed"
 	"encoding/base64"
 	"fmt"
@@ -25,6 +24,7 @@ import (
 	"github.com/dbut2/auth/go/providers"
 	"github.com/dbut2/auth/go/store"
 	"github.com/dbut2/auth/html"
+	"github.com/dbut2/auth/static"
 )
 
 type Providers map[string]Provider
@@ -45,9 +45,6 @@ func (p Providers) RedirectMap(state string) map[string]string {
 	return m
 }
 
-//go:embed static/*
-var staticFiles embed.FS
-
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -56,8 +53,7 @@ func main() {
 
 	ctx := context.Background()
 
-	configSecret := os.Getenv("CONFIG_SECRET")
-	config, err := ConfigFromSecret(ctx, configSecret)
+	config, err := ConfigFromFile("/config/config.yaml")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -114,7 +110,7 @@ func main() {
 
 	e.GET("/static/:file", func(c *gin.Context) {
 		file := c.Param("file")
-		bytes, err := staticFiles.ReadFile("static/" + file)
+		bytes, err := static.Files.ReadFile(file)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -175,7 +171,7 @@ func main() {
 }
 
 func (a *AuthService) preprocessTemplate() (*template.Template, error) {
-	t, err := template.ParseFS(html.Files, "html/*.html", "html/*/*.html")
+	t, err := template.ParseFS(html.Files, "*.html", "*/*.html")
 	if err != nil {
 		return nil, err
 	}

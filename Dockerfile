@@ -5,7 +5,9 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY go/ html/ static/ ./
+COPY static static
+COPY html html
+COPY go go
 RUN go build -o /bin/server ./go
 
 FROM alpine AS final

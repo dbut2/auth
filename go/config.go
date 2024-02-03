@@ -4,8 +4,6 @@ import (
 	"context"
 	"os"
 
-	gsm "cloud.google.com/go/secretmanager/apiv1"
-	gsmpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/facebook"
 	"golang.org/x/oauth2/github"
@@ -29,28 +27,6 @@ type Config struct {
 
 type SignerConfig struct {
 	Secret string `yaml:"keySecret"`
-}
-
-func ConfigFromSecret(ctx context.Context, secret string) (Config, error) {
-	client, err := gsm.NewClient(ctx)
-	if err != nil {
-		return Config{}, err
-	}
-
-	resp, err := client.AccessSecretVersion(ctx, &gsmpb.AccessSecretVersionRequest{
-		Name: secret,
-	})
-	if err != nil {
-		return Config{}, err
-	}
-
-	var config Config
-	err = yaml.Unmarshal(resp.GetPayload().GetData(), &config)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return config, nil
 }
 
 func ConfigFromFile(filename string) (Config, error) {
@@ -82,7 +58,7 @@ func NewService(ctx context.Context, config Config) (*AuthService, error) {
 	}
 	signer := crypto.NewLocalSigner(pk)
 
-	postgres, err := store.NewPostgres(config.Postgres)
+	postgres, err := store.NewPostgres(ctx, config.Postgres)
 	if err != nil {
 		return nil, err
 	}

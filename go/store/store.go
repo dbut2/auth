@@ -2,9 +2,9 @@ package store
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 
 	"github.com/dbut2/auth/go/models"
@@ -21,13 +21,12 @@ type Store interface {
 	StoreCode(ctx context.Context, user *models.User, code string) error
 }
 
-func NewPostgres(config PostgresConfig) (*sql.DB, error) {
-	conn, err := pq.NewConnector(config.DSN)
-	if err != nil {
-		return nil, err
-	}
+var (
+	ErrNotFound = errors.New("entity not found")
+)
 
-	return sql.OpenDB(conn), nil
+func NewPostgres(ctx context.Context, config PostgresConfig) (*pgx.Conn, error) {
+	return pgx.Connect(ctx, config.DSN)
 }
 
 type PostgresConfig struct {
