@@ -10,7 +10,7 @@ require (
 	github.com/google/go-github/v58 v58.0.0
 	github.com/google/uuid v1.6.0
 	github.com/huandu/facebook v2.3.1+incompatible
-	github.com/jackc/pgx/v5 v5.5.2
+	github.com/jackc/pgx/v5 v5.5.3
 	github.com/lestrrat-go/jwx/v2 v2.0.19
 	golang.org/x/oauth2 v0.16.0
 	google.golang.org/api v0.161.0
