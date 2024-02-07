@@ -5,7 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 
 	"github.com/dbut2/auth/go/cookie"
 	"github.com/dbut2/auth/go/crypto"
@@ -26,24 +25,6 @@ import (
 	"github.com/dbut2/auth/html"
 	"github.com/dbut2/auth/static"
 )
-
-type Providers map[string]Provider
-
-type Provider struct {
-	name     string
-	oauth2   *oauth2.Config
-	identity providers.IdentityProvider
-}
-
-func (p Providers) RedirectMap(state string) map[string]string {
-	m := make(map[string]string, len(p))
-
-	for name, provider := range p {
-		m[name] = provider.oauth2.AuthCodeURL(state)
-	}
-
-	return m
-}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -149,10 +130,6 @@ func main() {
 		c.Redirect(http.StatusTemporaryRedirect, "/dashboard")
 	})
 	e.GET("/dashboard", func(c *gin.Context) {
-		fmt.Println("cookies", len(c.Request.Cookies()))
-		for _, cookie := range c.Request.Cookies() {
-			fmt.Println(*cookie)
-		}
 		user, err := as.cookies.GetUser(c)
 		if err != nil {
 			panic(err.Error())
@@ -176,17 +153,17 @@ func (a *AuthService) preprocessTemplate() (*template.Template, error) {
 		return nil, err
 	}
 
-	redirectMap := a.providers.RedirectMap("{{ .State }}")
+	lm := linkMap(a.providers, "{{ .State }}")
 
-	redirectKeys := make([]string, 0, len(redirectMap))
-	for key := range redirectMap {
+	redirectKeys := make([]string, 0, len(lm))
+	for key := range lm {
 		redirectKeys = append(redirectKeys, key)
 	}
 	slices.Sort(redirectKeys)
 
 	signins := &bytes.Buffer{}
 	for _, provider := range redirectKeys {
-		err = t.ExecuteTemplate(signins, provider+"-signin.html", gin.H{"Link": template.HTML(redirectMap[provider])})
+		err = t.ExecuteTemplate(signins, provider+"-signin.html", gin.H{"Link": template.HTML(lm[provider])})
 		if err != nil {
 			return nil, err
 		}
@@ -200,6 +177,14 @@ func (a *AuthService) preprocessTemplate() (*template.Template, error) {
 
 	loginTemplate := strings.ReplaceAll(login.String(), "%7B%7B&#43;.State&#43;%7D%7D", "{{ .State }}") // todo: there's probably a better way to do this
 	return template.New("login").Parse(loginTemplate)
+}
+
+func linkMap(ps providers.Providers, state string) map[string]string {
+	lm := map[string]string{}
+	for _, p := range ps {
+		lm[p.Name] = p.OAuth2.AuthCodeURL(state)
+	}
+	return lm
 }
 
 func Error(c *gin.Context, err error) {
@@ -248,22 +233,21 @@ func (a *AuthService) Redirect(c *gin.Context) {
 func (a *AuthService) Take(ctx context.Context, provider string, code string) (*models.User, error) {
 	p := a.providers[provider]
 
-	token, err := p.oauth2.Exchange(ctx, code)
+	token, err := p.OAuth2.Exchange(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 
-	identity, err := p.identity(ctx, token)
+	identity, err := p.Identity(ctx, token)
 	if err != nil {
 		return nil, err
 	}
 
 	user, err := a.store.GetUser(ctx, provider, identity)
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
-
-	if user == nil {
+	if errors.Is(err, store.ErrNotFound) || user == nil {
 		user, err = a.store.CreateUser(ctx)
 		if err != nil {
 			return nil, err
@@ -291,7 +275,7 @@ func (a *AuthService) GenerateCode(ctx context.Context, user *models.User) (stri
 type AuthService struct {
 	address string
 
-	providers Providers
+	providers providers.Providers
 	signer    crypto.Signer
 	encrypter crypto.Encrypter
 	store     store.Store

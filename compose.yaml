@@ -6,4 +6,31 @@ services:
     ports:
       - 8080:8080
     volumes:
+      - ./test-config.yaml:/config/config.yaml
       - ~/.config/gcloud:/root/.config/gcloud
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mock-provider:
+        condition: service_started
+
+  postgres:
+    image: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_DB: auth
+    volumes:
+      - ./schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-provider:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.1
+    ports:
+      - 8081:8080

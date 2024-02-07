@@ -2,47 +2,69 @@ package providers
 
 import (
 	"context"
-	"net/http"
+	"fmt"
+	"strings"
 
-	"github.com/google/go-github/v58/github"
-	"github.com/huandu/facebook"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/option"
-	"google.golang.org/api/people/v1"
 )
 
-// IdentityProvider should return a deterministic object for a user
-type IdentityProvider func(ctx context.Context, token *oauth2.Token) (any, error)
+type Config struct {
+	Providers map[string]ProviderConfig `yaml:",inline"`
+}
 
-func GetFacebookIdentity(clientID, clientSecret string) IdentityProvider {
-	client := facebook.New(clientID, clientSecret)
-	client.EnableAppsecretProof = true
+func New(c Config, address string) (Providers, error) {
+	redirectBase := strings.TrimRight(address, "/") + "/redirect"
 
-	return func(ctx context.Context, token *oauth2.Token) (any, error) {
-		session := client.Session(token.AccessToken)
-		session.AppsecretProof()
-		return session.User()
+	p := Providers{}
+	for name, pc := range c.Providers {
+		builder, ok := providerBuilders[name]
+		if !ok {
+			return nil, fmt.Errorf("unknown provider: %s", name)
+		}
+		p[name] = builder.Build(name, pc, redirectBase)
+	}
+	return p, nil
+}
+
+var providerBuilders = map[string]ProviderBuilder{}
+
+func registerProviderBuilder(name string, pb ProviderBuilder) {
+	providerBuilders[name] = pb
+}
+
+type ProviderConfig struct {
+	ClientID     string   `yaml:"clientID"`
+	ClientSecret string   `yaml:"clientSecret"`
+	Scopes       []string `yaml:"scopes"`
+}
+
+type ProviderBuilder struct {
+	Endpoint        oauth2.Endpoint
+	IdentityBuilder IdentityBuilder
+}
+
+func (p ProviderBuilder) Build(name string, config ProviderConfig, redirectBase string) Provider {
+	return Provider{
+		Name: name,
+		OAuth2: &oauth2.Config{
+			ClientID:     config.ClientID,
+			ClientSecret: config.ClientSecret,
+			Endpoint:     p.Endpoint,
+			RedirectURL:  strings.TrimRight(redirectBase, "/") + "/" + name,
+			Scopes:       config.Scopes,
+		},
+		Identity: p.IdentityBuilder(config),
 	}
 }
 
-func GitHubIdentity(ctx context.Context, token *oauth2.Token) (any, error) {
-	client := github.NewClient(http.DefaultClient).WithAuthToken(token.AccessToken)
-	user, _, err := client.Users.Get(ctx, "")
-	if err != nil {
-		return nil, err
-	}
-	return user.GetID(), nil
+type Providers map[string]Provider
+
+type Provider struct {
+	Name     string
+	OAuth2   *oauth2.Config
+	Identity Identity
 }
 
-func GoogleIdentity(ctx context.Context, token *oauth2.Token) (any, error) {
-	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	client, err := people.NewService(ctx, option.WithHTTPClient(httpClient))
-	if err != nil {
-		return nil, err
-	}
-	person, err := client.People.Get("people/me").PersonFields("names").Do()
-	if err != nil {
-		return nil, err
-	}
-	return person.ResourceName, nil
-}
+type IdentityBuilder func(config ProviderConfig) Identity
+
+type Identity func(ctx context.Context, token *oauth2.Token) (any, error)

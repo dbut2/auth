@@ -1,0 +1,17 @@
+address: "http://localhost:8080"
+postgres:
+  dsn: "postgresql://postgres:password@postgres:5432/auth"
+signer:
+crypto:
+  signer:
+    local: true
+    generate: true
+  encrypter:
+    local: true
+providers:
+  mock-provider:
+    clientID: "client-id"
+    clientSecret: "client-secret"
+    scopes:
+      - openid
+      - test

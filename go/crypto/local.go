@@ -73,20 +73,14 @@ func (l *LocalSigner) PublicKey(ctx context.Context) ([]byte, string, error) {
 	return pem.EncodeToMemory(pemBlock), "key", nil
 }
 
-type LocalEncrypter struct {
-	key *rsa.PrivateKey
-}
+type LocalEncrypter struct{}
 
 var _ Encrypter = new(LocalEncrypter)
 
-func NewLocalEncrypter(key *rsa.PrivateKey) *LocalEncrypter {
-	return &LocalEncrypter{key: key}
+func (l LocalEncrypter) Encrypt(ctx context.Context, plaintext []byte) ([]byte, error) {
+	return plaintext, nil
 }
 
-func (l *LocalEncrypter) Encrypt(ctx context.Context, plaintext []byte) ([]byte, error) {
-	return rsa.EncryptPKCS1v15(rand.Reader, &l.key.PublicKey, plaintext)
-}
-
-func (l *LocalEncrypter) Decrypt(ctx context.Context, ciphertext []byte) ([]byte, error) {
-	return rsa.DecryptPKCS1v15(rand.Reader, l.key, ciphertext)
+func (l LocalEncrypter) Decrypt(ctx context.Context, ciphertext []byte) ([]byte, error) {
+	return ciphertext, nil
 }
