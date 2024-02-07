@@ -67,6 +67,12 @@ func main() {
 		"418": "may be short and stout",
 		"500": "Sorry, something went wrong while trying to process your request.",
 	}
+	e.NoRoute(func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/error/404")
+	})
+	e.NoMethod(func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/error/405")
+	})
 	e.GET("/error/:code", func(c *gin.Context) {
 		code := c.Param("code")
 
@@ -148,7 +154,7 @@ func main() {
 }
 
 func (a *AuthService) preprocessTemplate() (*template.Template, error) {
-	t, err := template.ParseFS(html.Files, "*.html", "*/*.html")
+	rawT, err := template.ParseFS(html.Files, "*.html", "*/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +166,11 @@ func (a *AuthService) preprocessTemplate() (*template.Template, error) {
 		redirectKeys = append(redirectKeys, key)
 	}
 	slices.Sort(redirectKeys)
+
+	t, err := rawT.Clone()
+	if err != nil {
+		return nil, err
+	}
 
 	signins := &bytes.Buffer{}
 	for _, provider := range redirectKeys {
@@ -176,7 +187,7 @@ func (a *AuthService) preprocessTemplate() (*template.Template, error) {
 	}
 
 	loginTemplate := strings.ReplaceAll(login.String(), "%7B%7B&#43;.State&#43;%7D%7D", "{{ .State }}") // todo: there's probably a better way to do this
-	return template.New("login").Parse(loginTemplate)
+	return rawT.New("login").Parse(loginTemplate)
 }
 
 func linkMap(ps providers.Providers, state string) map[string]string {
