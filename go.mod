@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.3
 	github.com/lestrrat-go/jwx/v2 v2.0.19
 	golang.org/x/oauth2 v0.17.0
-	google.golang.org/api v0.162.0
+	google.golang.org/api v0.163.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
