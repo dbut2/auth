@@ -8,17 +8,18 @@ import (
 	"golang.org/x/oauth2/endpoints"
 )
 
-func init() {
-	registerProviderBuilder("facebook", facebookBuilder)
+type facebookConfig struct {
+	BaseConfig `yaml:",inline"`
 }
 
-var facebookBuilder = ProviderBuilder{
-	Endpoint:        endpoints.Facebook,
-	IdentityBuilder: facebookIdentity,
+func (f facebookConfig) Name() string { return "facebook" }
+
+func (f facebookConfig) Build(name string, redirectBase string) (Provider, error) {
+	return f.BaseConfig.BuildWith(name, redirectBase, endpoints.Facebook, f.facebookIdentity())
 }
 
-func facebookIdentity(config ProviderConfig) Identity {
-	client := facebook.New(config.ClientID, config.ClientSecret)
+func (f facebookConfig) facebookIdentity() IdentityFunc {
+	client := facebook.New(f.ClientID, f.ClientSecret)
 	client.EnableAppsecretProof = true
 	return func(ctx context.Context, token *oauth2.Token) (any, error) {
 		session := client.Session(token.AccessToken)

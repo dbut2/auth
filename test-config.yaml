@@ -10,6 +10,8 @@ crypto:
     local: true
 providers:
   mock-provider:
+    internalHost: "http://mock-provider:8080"
+    externalHost: "http://localhost:8081"
     clientID: "client-id"
     clientSecret: "client-secret"
     scopes:

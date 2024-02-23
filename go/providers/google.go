@@ -9,16 +9,17 @@ import (
 	"google.golang.org/api/people/v1"
 )
 
-func init() {
-	registerProviderBuilder("google", googleBuilder)
+type googleConfig struct {
+	BaseConfig `yaml:",inline"`
 }
 
-var googleBuilder = ProviderBuilder{
-	Endpoint:        endpoints.Google,
-	IdentityBuilder: googleIdentity,
+func (g googleConfig) Name() string { return "google" }
+
+func (g googleConfig) Build(name string, redirectBase string) (Provider, error) {
+	return g.BaseConfig.BuildWith(name, redirectBase, endpoints.Google, g.googleIdentity())
 }
 
-func googleIdentity(config ProviderConfig) Identity {
+func (g googleConfig) googleIdentity() IdentityFunc {
 	return func(ctx context.Context, token *oauth2.Token) (any, error) {
 		httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
 		client, err := people.NewService(ctx, option.WithHTTPClient(httpClient))

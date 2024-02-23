@@ -2,59 +2,47 @@ package providers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"golang.org/x/oauth2"
 )
 
-type Config struct {
-	Providers map[string]ProviderConfig `yaml:",inline"`
-}
-
 func New(c Config, address string) (Providers, error) {
 	redirectBase := strings.TrimRight(address, "/") + "/redirect"
-
 	p := Providers{}
+	var err error
 	for name, pc := range c.Providers {
-		builder, ok := providerBuilders[name]
-		if !ok {
-			return nil, fmt.Errorf("unknown provider: %s", name)
+		p[name], err = pc.Build(name, redirectBase)
+		if err != nil {
+			return nil, err
 		}
-		p[name] = builder.Build(name, pc, redirectBase)
 	}
 	return p, nil
 }
 
-var providerBuilders = map[string]ProviderBuilder{}
-
-func registerProviderBuilder(name string, pb ProviderBuilder) {
-	providerBuilders[name] = pb
+type ProviderConfig interface {
+	Name() string
+	Build(name string, redirectBase string) (Provider, error)
 }
 
-type ProviderConfig struct {
+type BaseConfig struct {
 	ClientID     string   `yaml:"clientID"`
 	ClientSecret string   `yaml:"clientSecret"`
 	Scopes       []string `yaml:"scopes"`
 }
 
-type ProviderBuilder struct {
-	Endpoint        oauth2.Endpoint
-	IdentityBuilder IdentityBuilder
-}
-
-func (p ProviderBuilder) Build(name string, config ProviderConfig, redirectBase string) Provider {
+func (b BaseConfig) BuildWith(name string, redirectBase string, endpoint oauth2.Endpoint, identity IdentityFunc) (Provider, error) {
 	return Provider{
 		Name: name,
 		OAuth2: &oauth2.Config{
-			ClientID:     config.ClientID,
-			ClientSecret: config.ClientSecret,
-			Endpoint:     p.Endpoint,
+			ClientID:     b.ClientID,
+			ClientSecret: b.ClientSecret,
+			Endpoint:     endpoint,
 			RedirectURL:  strings.TrimRight(redirectBase, "/") + "/" + name,
-			Scopes:       config.Scopes,
+			Scopes:       b.Scopes,
 		},
-		Identity: p.IdentityBuilder(config),
-	}
+		Identity: identity,
+	}, nil
 }
 
 type Providers map[string]Provider
@@ -62,9 +50,7 @@ type Providers map[string]Provider
 type Provider struct {
 	Name     string
 	OAuth2   *oauth2.Config
-	Identity Identity
+	Identity IdentityFunc
 }
 
-type IdentityBuilder func(config ProviderConfig) Identity
-
-type Identity func(ctx context.Context, token *oauth2.Token) (any, error)
+type IdentityFunc func(ctx context.Context, token *oauth2.Token) (any, error)

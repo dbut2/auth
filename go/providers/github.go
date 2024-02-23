@@ -9,16 +9,17 @@ import (
 	"golang.org/x/oauth2/endpoints"
 )
 
-func init() {
-	registerProviderBuilder("github", githubBuilder)
+type githubConfig struct {
+	BaseConfig `yaml:",inline"`
 }
 
-var githubBuilder = ProviderBuilder{
-	Endpoint:        endpoints.GitHub,
-	IdentityBuilder: githubIdentity,
+func (g githubConfig) Name() string { return "github" }
+
+func (g githubConfig) Build(name string, redirectBase string) (Provider, error) {
+	return g.BaseConfig.BuildWith(name, redirectBase, endpoints.GitHub, g.githubIdentity())
 }
 
-func githubIdentity(config ProviderConfig) Identity {
+func (g githubConfig) githubIdentity() IdentityFunc {
 	baseClient := github.NewClient(http.DefaultClient)
 	return func(ctx context.Context, token *oauth2.Token) (any, error) {
 		client := baseClient.WithAuthToken(token.AccessToken)
