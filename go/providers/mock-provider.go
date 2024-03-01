@@ -12,11 +12,9 @@ import (
 type mockConfig struct {
 	BaseConfig `yaml:",inline"`
 
-	InternalHost string `yaml:"internalHost"` // http://mock-provider:8080
-	ExternalHost string `yaml:"externalHost"` // http://localhost:8081
+	InternalHost string `yaml:"internalHost"`
+	ExternalHost string `yaml:"externalHost"`
 }
-
-func (m mockConfig) Name() string { return "mock-provider" }
 
 func (m mockConfig) Build(name string, redirectBase string) (Provider, error) {
 	return m.BaseConfig.BuildWith(name, redirectBase, m.Endpoint(), m.mockIdentity())

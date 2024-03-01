@@ -13,8 +13,6 @@ type googleConfig struct {
 	BaseConfig `yaml:",inline"`
 }
 
-func (g googleConfig) Name() string { return "google" }
-
 func (g googleConfig) Build(name string, redirectBase string) (Provider, error) {
 	return g.BaseConfig.BuildWith(name, redirectBase, endpoints.Google, g.googleIdentity())
 }

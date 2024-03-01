@@ -12,8 +12,6 @@ type facebookConfig struct {
 	BaseConfig `yaml:",inline"`
 }
 
-func (f facebookConfig) Name() string { return "facebook" }
-
 func (f facebookConfig) Build(name string, redirectBase string) (Provider, error) {
 	return f.BaseConfig.BuildWith(name, redirectBase, endpoints.Facebook, f.facebookIdentity())
 }

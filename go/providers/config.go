@@ -11,14 +11,14 @@ type Config struct {
 }
 
 func init() {
-	registerConfig[facebookConfig]()
-	registerConfig[githubConfig]()
-	registerConfig[googleConfig]()
-	registerConfig[mockConfig]()
+	registerConfig[facebookConfig]("facebook")
+	registerConfig[githubConfig]("github")
+	registerConfig[googleConfig]("google")
+	registerConfig[mockConfig]("mock-provider")
 }
 
-func registerConfig[T ProviderConfig]() {
-	providerConfigs[(*new(T)).Name()] = decode[T]((*new(T)).Name())
+func registerConfig[T ProviderConfig](name string) {
+	providerConfigs[name] = decode[T](name)
 }
 
 var providerConfigs = make(map[string]func(*yaml.Node) (ProviderConfig, error))

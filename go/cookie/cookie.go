@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 
-	"github.com/dbut2/auth/go/auth"
+	"github.com/dbut2/auth/go/issuer"
 	"github.com/dbut2/auth/go/models"
 )
 
@@ -19,12 +19,12 @@ type Cookies interface {
 }
 
 type DefaultCookies struct {
-	issuer auth.Issuer
+	issuer issuer.Issuer
 }
 
 var _ Cookies = new(DefaultCookies)
 
-func NewDefaultCookies(issuer auth.Issuer) *DefaultCookies {
+func NewDefaultCookies(issuer issuer.Issuer) *DefaultCookies {
 	return &DefaultCookies{issuer: issuer}
 }
 

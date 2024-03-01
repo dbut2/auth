@@ -21,7 +21,6 @@ func New(c Config, address string) (Providers, error) {
 }
 
 type ProviderConfig interface {
-	Name() string
 	Build(name string, redirectBase string) (Provider, error)
 }
 

@@ -13,8 +13,6 @@ type githubConfig struct {
 	BaseConfig `yaml:",inline"`
 }
 
-func (g githubConfig) Name() string { return "github" }
-
 func (g githubConfig) Build(name string, redirectBase string) (Provider, error) {
 	return g.BaseConfig.BuildWith(name, redirectBase, endpoints.GitHub, g.githubIdentity())
 }
