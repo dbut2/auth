@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"net"
 
+	"cloud.google.com/go/cloudsqlconn"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 
@@ -26,9 +28,24 @@ var (
 )
 
 func NewPostgres(ctx context.Context, config PostgresConfig) (*pgx.Conn, error) {
+	d, err := cloudsqlconn.NewDialer(ctx, cloudsqlconn.WithDefaultDialOptions(cloudsqlconn.WithPrivateIP()))
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := pgx.ParseConfig(config.DSN)
+	if err != nil {
+		return nil, err
+	}
+
+	c.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return d.Dial(ctx, config.ICN)
+	}
+
 	return pgx.Connect(ctx, config.DSN)
 }
 
 type PostgresConfig struct {
 	DSN string `yaml:"dsn"`
+	ICN string `yaml:"icn"`
 }

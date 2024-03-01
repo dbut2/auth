@@ -3,6 +3,7 @@ module github.com/dbut2/auth
 go 1.21.6
 
 require (
+	cloud.google.com/go/cloudsqlconn v1.7.0
 	cloud.google.com/go/kms v1.15.7
 	cloud.google.com/go/secretmanager v1.11.5
 	github.com/gin-gonic/gin v1.9.1
