@@ -4,7 +4,7 @@ go 1.21.6
 
 require (
 	cloud.google.com/go/cloudsqlconn v1.7.0
-	cloud.google.com/go/kms v1.15.8
+	cloud.google.com/go/kms v1.15.9
 	cloud.google.com/go/secretmanager v1.13.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
