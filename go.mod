@@ -13,7 +13,7 @@ require (
 	github.com/huandu/facebook v2.3.1+incompatible
 	github.com/jackc/pgx/v5 v5.5.3
 	github.com/lestrrat-go/jwx/v2 v2.0.21
-	golang.org/x/oauth2 v0.19.0
+	golang.org/x/oauth2 v0.21.0
 	google.golang.org/api v0.177.0
 	gopkg.in/yaml.v3 v3.0.1
 )
