@@ -3,7 +3,7 @@ module github.com/dbut2/auth
 go 1.21.6
 
 require (
-	cloud.google.com/go/cloudsqlconn v1.7.0
+	cloud.google.com/go/cloudsqlconn v1.12.0
 	cloud.google.com/go/kms v1.18.4
 	cloud.google.com/go/secretmanager v1.13.5
 	github.com/gin-gonic/gin v1.9.1
@@ -11,7 +11,7 @@ require (
 	github.com/google/go-github/v58 v58.0.0
 	github.com/google/uuid v1.6.0
 	github.com/huandu/facebook v2.3.1+incompatible
-	github.com/jackc/pgx/v5 v5.5.3
+	github.com/jackc/pgx/v5 v5.6.0
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	golang.org/x/oauth2 v0.22.0
 	google.golang.org/api v0.193.0
