@@ -14,13 +14,13 @@ require (
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/lestrrat-go/jwx/v2 v2.1.1
 	golang.org/x/oauth2 v0.22.0
-	google.golang.org/api v0.193.0
+	google.golang.org/api v0.194.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/auth v0.9.0 // indirect
+	cloud.google.com/go/auth v0.9.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	cloud.google.com/go/iam v1.1.13 // indirect
